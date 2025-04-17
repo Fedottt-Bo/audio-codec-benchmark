@@ -1,6 +1,8 @@
 # Audio codecs comparsion
 
-- FLAC (flac v1.5.0): Downloaded from it's [website](xiph.org/flac/download.html)
+- FLAC:
+  - (flac v1.5.0): Downloaded from it's [website](xiph.org/flac/download.html)
+  - (FlaCCL v2.2.6) Downloaded as a part of CUETools from it's [website](cue.tools/wiki/CUETools_Download)
 - MP3 (lame 3.100.1): Downloaded from it's [RareWares](www.rarewares.org/mp3-lame-bundle.php)
 - APE (mac 11.08): Downloaded from it's [website](www.monkeysaudio.com/download.html)
 - Wavpack (wavpack 5.8.0): Downloaded from it's [website](http://www.wavpack.com/downloads.html)
