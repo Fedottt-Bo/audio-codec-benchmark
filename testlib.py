@@ -7,7 +7,9 @@ import librosa
 import numpy as np
 from scipy.spatial import ConvexHull
 
-cqt_fmin = librosa.note_to_hz('A1')
+print("Finished testlib inner imports")
+
+cqt_fmin = np.array([55.]) # librosa.note_to_hz('A1')
 ffmpeg_path = './codecs/ffmpeg.exe'
 
 class Codec: # TODO: add flag indicating whether supporting hires files
@@ -64,7 +66,7 @@ class mac(Codec):
         fout = fin + ".wav"
         check_call([self.path, fin, fout, "-d"], stdout=DEVNULL, stderr=DEVNULL)
         return fout
-        
+
 class wavpack(Codec):
     def __init__(self, path, cmd_args):
         super().__init__(path, cmd_args)
@@ -335,6 +337,8 @@ class mpc(Codec):
         call([decoder, fin, fout], stdout=DEVNULL, stderr=DEVNULL)
         return fout
 
+print("Created testlib classes")
+
 def spectro(audio):
     spectro = np.abs(librosa.stft(audio, n_fft=4096))
     sdb = librosa.amplitude_to_db(spectro, ref=np.max)
@@ -383,3 +387,5 @@ def contour_points(x, y, direction): # direction: ne, nw, se, sw
             part_hull.append(idx)
         if idx == pend and part_inside:
             return np.array(part_hull)
+
+print("Created testlib utility functions")

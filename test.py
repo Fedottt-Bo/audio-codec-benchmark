@@ -10,14 +10,15 @@ import librosa.display
 import matplotlib.pyplot as plt
 import numpy as np
 
+print("Finished main file imports")
+
 from testlib import *
 
+print("Imported testlib")
+
 # some global configs
-files = [ # <---- Put your audio files in here (need .wav format)
-    "PLight - Bass_tek 2.wav",
-    "久石让 - あの夏へ.wav",
-    "Aimer - Ref_rain.wav",
-    "John Powell & Hans Zimmer - Hero.wav",
+files = [
+
 ]
 
 # x64 encoder paths
@@ -337,7 +338,7 @@ def plot_results(result_path="result.json", tag_points=True, bitrate_as_x=False)
         ax[1].grid(True)
         ax[1].legend()
         fig.tight_layout()
-        fig.savefig(fbasename + (".lossless_x64.jpg" if x64 else ".lossless.jpg"))
+        fig.savefig(fbasename + ".lossless.jpg")
 
         lossy_results = fresults["lossy"]
         fig, ax = plt.subplots(ncols=2, figsize=(16, 8))
@@ -414,18 +415,15 @@ def plot_results(result_path="result.json", tag_points=True, bitrate_as_x=False)
         ax_err[1, 1].legend()
         fig.tight_layout()
         fig_err.tight_layout()
-        fig.savefig(fbasename + (".lossy_x64.jpg" if x64 else ".lossy.jpg"))
-        fig_err.savefig(fbasename + (".lossy_err_x64.jpg" if x64 else ".lossy_err.jpg"))
+        fig.savefig(fbasename + ".lossy.jpg")
+        fig_err.savefig(fbasename + ".lossy_err.jpg")
 
         plt.show()
 
 def save_table(result_path="result.json"):
     with open("result.json", "r") as jin:
         results = json.load(jin)
-    if x64:
-        fmd = open("result_x64.md", "w")
-    else:
-        fmd = open("result.md", "w")
+    fmd = open("result.md", "w")
 
     fmd.write('''# Criteria
 - *Compression Ratio (CR)*: compressed file size / original uncompressed file size (lower the better)
