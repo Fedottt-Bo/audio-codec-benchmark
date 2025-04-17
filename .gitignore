@@ -18,5 +18,4 @@ __pycache__/
 *.wvc
 
 # Support files for qaac
-codecs/qaac/QTfiles
-codecs/qaac_x64/QTfiles64
+/codecs
