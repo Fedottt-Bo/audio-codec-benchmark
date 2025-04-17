@@ -13,7 +13,6 @@ import numpy as np
 from testlib import *
 
 # some global configs
-x64 = False # <---- Change to x64 codec implementations
 files = [ # <---- Put your audio files in here (need .wav format)
     "PLight - Bass_tek 2.wav",
     "久石让 - あの夏へ.wav",
@@ -21,38 +20,39 @@ files = [ # <---- Put your audio files in here (need .wav format)
     "John Powell & Hans Zimmer - Hero.wav",
 ]
 
-# encoder paths
-flac_path = './codecs/flac_x64.exe' if x64 else './codecs/flac.exe'
-mac_path = "./codecs/MAC_x64.exe" if x64 else './codecs/MAC.exe'
-wavpack_path = "./codecs/wavpack_x64.exe" if x64 else './codecs/wavpack.exe'
-lame_path = './codecs/lame_x64.exe' if x64 else './codecs/lame.exe'
-takc_path = './codecs/Takc.exe' if not x64 else None
-tta_path = './codecs/tta_sse4_x64.exe' if x64 else './codecs/tta_sse4.exe'
-wma_path = './codecs/WMAEncode_x64.exe' if x64 else './codecs/WMAEncode.exe'
-lossywav_path = './codecs/lossyWAV_x64.exe' if x64 else './codecs/lossyWAV.exe'
-refalac_path = './codecs/refalac_x64.exe' if x64 else './codecs/refalac.exe'
-ofr_path = "./codecs/ofr_x64.exe" if x64 else './codecs/ofr.exe'
-ofs_path = "./codecs/ofs_x64.exe" if x64 else './codecs/ofs.exe'
-opus_path = "./codecs/opusenc.exe" if not x64 else None
-ogg_path = "./codecs/oggenc2_x64.exe" if x64 else "./codecs/oggenc2.exe"
-neroaac_path = "./codecs/neroAacEnc.exe" if not x64 else None
-qaac_path = "./codecs/qaac_x64/qaac64.exe" if x64 else "./codecs/qaac/qaac.exe"
-mpc_path = "./codecs/mpcenc_x64.exe" if x64 else "./codecs/mpcenc.exe"
+# x64 encoder paths
+flac_path = "./codecs/flac.exe"
+mac_path = "./codecs/MAC.exe"
+wavpack_path = "./codecs/wavpack.exe"
+lame_path = "./codecs/lame.exe"
+tta_path = "./codecs/tta_sse4.exe"
+wma_path = "./codecs/WMAEncode.exe"
+lossywav_path = "./codecs/lossyWAV.exe"
+refalac_path = "./codecs/refalac.exe"
+ofr_path = "./codecs/ofr.exe"
+ofs_path = "./codecs/ofs.exe"
+ogg_path = "./codecs/oggenc2.exe"
+mpc_path = "./codecs/mpcenc.exe"
+
+# x86 encoder paths
+takc_path = "./codecs/Takc.exe"
+opus_path = "./codecs/opusenc.exe"
+neroaac_path = "./codecs/neroAacEnc.exe"
 
 # lossless codes
 flac_codecs = [flac(flac_path, '-' + str(c)) for c in range(8)]
 ape_codecs = [mac(mac_path, '-c%d000' % c) for c in range(1, 6)]
 wavpack_lossless_codecs = [wavpack(wavpack_path, a) for a in ['-f',None,'-h','-hh',['-h', '-x1'],['-hh', '-x3']]]
 wavpack_lossless_hybrid_codecs = [wavpack(wavpack_path, ['-c', '-b192'] + a) for a in [['-f'],[],['-h'],['-hh']]]
-tak_codecs = [takc(takc_path, ['-p'+str(p)+e, '-tn'+str(t)]) for p, e, t in product(range(5), ['', 'e', 'm'], [1, 4])] if not x64 else []
+tak_codecs = [takc(takc_path, ['-p'+str(p)+e, '-tn'+str(t)]) for p, e, t in product(range(5), ['', 'e', 'm'], [1, 4])]
 tta_codecs = [tta(tta_path, None)]
 wma_lossless_codecs = [wmaencode(wma_path, ['-c', 'lsl'])]
 lossyflac_codecs = [lossyflac(lossywav_path, flac_path, ['-q', q, '-C'], '-' + str(c)) for q, c in product(['I','H','S','X'], [1,4,7])]
-lossytak_codecs = [lossytak(lossywav_path, takc_path, ['-q', q, '-C'], '-p' + str(p)) for q, p in product(['I','H','S','X'], ['2m'])] if not x64 else []
+lossytak_codecs = [lossytak(lossywav_path, takc_path, ['-q', q, '-C'], '-p' + str(p)) for q, p in product(['I','H','S','X'], ['2m'])]
 lossywv_codecs = [lossywv(lossywav_path, wavpack_path, ['-q', q, '-C'], a) for q, a in product(['I','H','S','X'], ['-f',None,'-h'])]
 alac_codecs = [refalac(refalac_path, None), refalac(refalac_path, "--fast")]
 optimfrog_codecs = [ofr(ofr_path, ["--preset", str(p)]) for p in [0, 5, 10]]
-# optimfrog_hybrid_codecs = [ofs(ofs_path, ["--quality", str(q), "--correction"]) for q in [0,2,6]] # always crashes and audio is not preserved
+optimfrog_hybrid_codecs = [ofs(ofs_path, ["--quality", str(q), "--correction"]) for q in [0,2,6]]
 
 lossless_codecs = {
     "optimFrog": optimfrog_codecs,
@@ -78,15 +78,12 @@ lame_vbr_codecs = [lame(lame_path, ['-V' + str(v), '-q' + str(q)]) for v, q in p
 wma_lossy_cbr_codecs = [wmaencode(wma_path, ['-c', 'pro', '-m', m, '-b', str(b)]) for m, b in product(['cbr', 'cbr2pass'], [128,160,192,256,384,440])]
 wma_lossy_vbr_codecs = [wmaencode(wma_path, ['-c', 'pro', '-m', m, '-q', str(q)]) for m, q in product(['vbr', 'vbr2pass'], [10,25,50,75,90,98])]
 optimfrog_lossy_codecs = [ofs(ofs_path, ["--quality", str(q)]) for q in [0,2,6]]
-opus_codecs = [opus(opus_path, ["--bitrate", str(b//2)]) for b in birates] if not x64 else []
+opus_codecs = [opus(opus_path, ["--bitrate", str(b//2)]) for b in birates]
 lossyflac_codecs = [lossyflac(lossywav_path, flac_path, ['-q', q], '-' + str(c)) for q, c in product(['I','H','S','X'], [1,4,7])]
-lossytak_codecs = [lossytak(lossywav_path, takc_path, ['-q', q], '-p' + str(p)) for q, p in product(['I','H','S','X'], ['2m'])] if not x64 else []
+lossytak_codecs = [lossytak(lossywav_path, takc_path, ['-q', q], '-p' + str(p)) for q, p in product(['I','H','S','X'], ['2m'])]
 lossywv_codecs = [lossywv(lossywav_path, wavpack_path, ['-q', q], a) for q, a in product(['I','H','S','X'], ['-f',None,'-h'])]
-aac_vbr_codecs = ([neroaac(neroaac_path, ['-q', str(q)]) for q in [0.1, 0.3, 0.5, 0.7, 0.9]] if not x64 else []) \
-    + [qaac(qaac_path, ['-V', str(v)]) for v in [31, 63, 95]]
-aac_cbr_codecs = ([neroaac(neroaac_path, ['-cbr', str(c)]) for c in birates] if not x64 else []) \
-    + [qaac(qaac_path, ['-c', str(c)]) for c in birates]
-vorbis_codecs = [oggenc(ogg_path, ['-q', str(q)]) for q in [2, 7, 10]]
+aac_vbr_codecs = [neroaac(neroaac_path, ['-q', str(q)]) for q in [0.1, 0.3, 0.5, 0.7, 0.9]]
+aac_cbr_codecs = [neroaac(neroaac_path, ['-cbr', str(c)]) for c in birates] vorbis_codecs = [oggenc(ogg_path, ['-q', str(q)]) for q in [2, 7, 10]]
 musepack_codecs = [mpc(mpc_path, q) for q in ["--standard", "--extreme", "--insane"]]
 
 lossy_codecs = {
