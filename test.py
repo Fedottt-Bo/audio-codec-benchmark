@@ -22,6 +22,7 @@ files = [ # <---- Put your audio files in here (need .wav format)
 
 # x64 encoder paths
 flac_path = "./codecs/flac.exe"
+flaccl_path = "./codecs/CUETools.FLACCL.cmd.exe"
 mac_path = "./codecs/MAC.exe"
 wavpack_path = "./codecs/wavpack.exe"
 lame_path = "./codecs/lame.exe"
@@ -39,20 +40,54 @@ takc_path = "./codecs/Takc.exe"
 opus_path = "./codecs/opusenc.exe"
 neroaac_path = "./codecs/neroAacEnc.exe"
 
+# Flag generation functions
+def wavpack_flags(bitrates, correction=False):
+    extras = [[], ["--use-dns"], ["--cross-decorr"], ["--use-dns", "--cross-decorr"]]
+    if correction:
+        extras += [["-cc"], ["-cc", "--use-dns"]]
+    flags = product([["-f"], [], ["-h"], ["-hh"], ["-hh", "-x3"]], bitrates, extras)
+    correction = ["-c"] if correction else []
+    return [correction + m + [f"-b{c}"] + extras for m, c, extras in flags]
+
+# Encoder constants
+flaccl_args = ["--slow-gpu"] # Optimal for integrated graphics or small files
+losssywav_modes = "IHSX"
+
 # lossless codes
-flac_codecs = [flac(flac_path, '-' + str(c)) for c in range(8)]
-ape_codecs = [mac(mac_path, '-c%d000' % c) for c in range(1, 6)]
-wavpack_lossless_codecs = [wavpack(wavpack_path, a) for a in ['-f',None,'-h','-hh',['-h', '-x1'],['-hh', '-x3']]]
-wavpack_lossless_hybrid_codecs = [wavpack(wavpack_path, ['-c', '-b192'] + a) for a in [['-f'],[],['-h'],['-hh']]]
-tak_codecs = [takc(takc_path, ['-p'+str(p)+e, '-tn'+str(t)]) for p, e, t in product(range(5), ['', 'e', 'm'], [1, 4])]
+flac_codecs = [flac(flac_path, [f"-{c}"]) for c in range(8+1)] +\
+[flac(flaccl_path, flaccl_args + [f"-{c}"]) for c in range(8+1)] +\
+[flac(flaccl_path, flaccl_args + [f"-{c}", "--lax"]) for c in range(9, 11+1)]
+ape_codecs = [mac(mac_path, f"-c{c}000") for c in range(1, 6)]
+wavpack_lossless_codecs = [
+    wavpack(wavpack_path, a) for a in
+    ["-f", None, "-h", "-hh", ["-h", "-x1"], ["-hh", "-x3"], ["-hh", "-x6"]]
+]
+wavpack_lossless_hybrid_codecs = [
+    wavpack(wavpack_path, flags) for flags in wavpack_flags([128, 192, 320], True)
+]
+tak_codecs = [
+    takc(takc_path, [f"-p{p}{e}", f"-tn{t}"]) for p, e, t in
+    product(range(5), ["", "e", "m"], [1, 4])
+]
 tta_codecs = [tta(tta_path, None)]
-wma_lossless_codecs = [wmaencode(wma_path, ['-c', 'lsl'])]
-lossyflac_codecs = [lossyflac(lossywav_path, flac_path, ['-q', q, '-C'], '-' + str(c)) for q, c in product(['I','H','S','X'], [1,4,7])]
-lossytak_codecs = [lossytak(lossywav_path, takc_path, ['-q', q, '-C'], '-p' + str(p)) for q, p in product(['I','H','S','X'], ['2m'])]
-lossywv_codecs = [lossywv(lossywav_path, wavpack_path, ['-q', q, '-C'], a) for q, a in product(['I','H','S','X'], ['-f',None,'-h'])]
+wma_lossless_codecs = [wmaencode(wma_path, ["-c", "lsl"])]
+lossyflac_codecs = [
+    lossyflac(lossywav_path, flac_path, ["-q", q, "-C"], f"-{c}") for q, c in
+    product(losssywav_modes, [1, 4, 7])
+]
+lossytak_codecs = [
+    lossytak(lossywav_path, takc_path, ["-q", q, "-C"], f"-p{p}") for q, p in
+    product(losssywav_modes, ["2m"])
+]
+lossywv_codecs = [
+    lossywv(lossywav_path, wavpack_path, ["-q", q, "-C"], a) for q, a in
+    product(losssywav_modes, ["-f", None, "-h"])
+]
 alac_codecs = [refalac(refalac_path, None), refalac(refalac_path, "--fast")]
 optimfrog_codecs = [ofr(ofr_path, ["--preset", str(p)]) for p in [0, 5, 10]]
-optimfrog_hybrid_codecs = [ofs(ofs_path, ["--quality", str(q), "--correction"]) for q in [0,2,6]]
+optimfrog_hybrid_codecs = [
+    ofs(ofs_path, ["--quality", str(q), "--correction"]) for q in [0, 2, 6]
+]
 
 lossless_codecs = {
     "optimFrog": optimfrog_codecs,
@@ -70,25 +105,57 @@ lossless_codecs = {
     "alac": alac_codecs,
 }
 
-# lossy codes
-birates = [128, 160, 192, 256, 320]
-wavpack_lossy_codecs = [wavpack(wavpack_path, ['-b' + str(b)]) for b in birates]
-lame_cbr_codecs = [lame(lame_path, ['-b' + str(b), '-q' + str(q)]) for b, q in product(birates, [2, 7])] # note: CBR <= 96kbps leads to downsampling
-lame_vbr_codecs = [lame(lame_path, ['-V' + str(v), '-q' + str(q)]) for v, q in product(range(7), [2, 7])] # note: VBR <= V7 leads to downsampling
-wma_lossy_cbr_codecs = [wmaencode(wma_path, ['-c', 'pro', '-m', m, '-b', str(b)]) for m, b in product(['cbr', 'cbr2pass'], [128,160,192,256,384,440])]
-wma_lossy_vbr_codecs = [wmaencode(wma_path, ['-c', 'pro', '-m', m, '-q', str(q)]) for m, q in product(['vbr', 'vbr2pass'], [10,25,50,75,90,98])]
-optimfrog_lossy_codecs = [ofs(ofs_path, ["--quality", str(q)]) for q in [0,2,6]]
-opus_codecs = [opus(opus_path, ["--bitrate", str(b//2)]) for b in birates]
-lossyflac_codecs = [lossyflac(lossywav_path, flac_path, ['-q', q], '-' + str(c)) for q, c in product(['I','H','S','X'], [1,4,7])]
-lossytak_codecs = [lossytak(lossywav_path, takc_path, ['-q', q], '-p' + str(p)) for q, p in product(['I','H','S','X'], ['2m'])]
-lossywv_codecs = [lossywv(lossywav_path, wavpack_path, ['-q', q], a) for q, a in product(['I','H','S','X'], ['-f',None,'-h'])]
-aac_vbr_codecs = [neroaac(neroaac_path, ['-q', str(q)]) for q in [0.1, 0.3, 0.5, 0.7, 0.9]]
-aac_cbr_codecs = [neroaac(neroaac_path, ['-cbr', str(c)]) for c in birates] vorbis_codecs = [oggenc(ogg_path, ['-q', str(q)]) for q in [2, 7, 10]]
+# lossy codec bitrates
+wavpack_birates = [48, 96, 128, 160, 192, 256, 320, 384, 420, 480]
+mp3_birates = [48, 96, 128, 160, 192, 256, 320] # note: CBR <= 96kbps leads to downsampling
+mp3_vbr_values = range(7) # note: VBR <= V7 leads to downsampling
+wma_bitrates = [96, 128, 160, 192, 256, 384, 440]
+wma_vbr_values = [10, 25, 50, 75, 90, 98]
+opus_birates = [32, 48, 64, 96, 128, 160, 192, 256, 320]
+aac_bitrates = wavpack_birates
+aac_vbr_values = [0.1, 0.3, 0.5, 0.7, 0.9]
+
+# lossy codecs
+wavpack_lossy_codecs = [
+    wavpack(wavpack_path, flags) for flags in wavpack_flags(wavpack_birates, True)
+]
+lame_cbr_codecs = [
+    lame(lame_path, [f"-b{b}", f"-q{q}"]) for b, q in
+    product(mp3_birates, [2, 7])
+]
+lame_vbr_codecs = [
+    lame(lame_path, [f"-V{v}", f"-q{q}"]) for v, q in
+    product(mp3_vbr_values, [2, 7])
+]
+wma_lossy_cbr_codecs = [
+    wmaencode(wma_path, ["-c", "pro", "-m", m, "-b", str(b)]) for m, b in
+    product(["cbr", "cbr2pass"], wma_bitrates)
+]
+wma_lossy_vbr_codecs = [
+    wmaencode(wma_path, ["-c", "pro", "-m", m, "-q", str(q)]) for m, q in
+    product(["vbr", "vbr2pass"], wma_vbr_values)
+]
+optimfrog_lossy_codecs = [ofs(ofs_path, ["--quality", str(q)]) for q in [0, 2, 6]]
+opus_codecs = [opus(opus_path, ["--bitrate", str(b // 2)]) for b in opus_birates]
+lossyflac_codecs = [
+    lossyflac(lossywav_path, flac_path, ["-q", q], f"-{c}") for q, c in
+    product(losssywav_modes, [1,4,7])
+]
+lossytak_codecs = [
+    lossytak(lossywav_path, takc_path, ["-q", q], f"-p{p}") for q, p in
+    product(losssywav_modes, ["2m"])
+]
+lossywv_codecs = [
+    lossywv(lossywav_path, wavpack_path, ["-q", q], a) for q, a in
+    product(losssywav_modes, ["-f", None, "-h"])
+]
+aac_vbr_codecs = [neroaac(neroaac_path, ["-q", str(q)]) for q in aac_vbr_values]
+aac_cbr_codecs = [neroaac(neroaac_path, ["-cbr", str(c)]) for c in aac_bitrates]
+vorbis_codecs = [oggenc(ogg_path, ["-q", str(q)]) for q in [2, 7, 10]]
 musepack_codecs = [mpc(mpc_path, q) for q in ["--standard", "--extreme", "--insane"]]
 
 lossy_codecs = {
-    # "optimFrog": optimfrog_lossy_codecs,
-
+    "optimFrog": optimfrog_lossy_codecs,
     "mp3(CBR)": lame_cbr_codecs,
     "mp3(VBR)": lame_vbr_codecs,
     "wavpack": wavpack_lossy_codecs,
@@ -144,7 +211,7 @@ def run_benchmark(save_spectrogram=True):
             series_results = []
             for codec in codecs:
                 print("Testing", codec, end="")
-                
+
                 tstart = time.time()
                 fresult = codec.encode(audio_file)
                 encode_time = time.time() - tstart
@@ -180,7 +247,7 @@ def run_benchmark(save_spectrogram=True):
             series_results = []
             for codec in codecs:
                 print("Testing", codec, end="")
-                
+
                 # encode
                 tstart = time.time()
                 fresult = codec.encode(audio_file)
