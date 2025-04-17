@@ -17,5 +17,5 @@ __pycache__/
 *.wv
 *.wvc
 
-# Support files for qaac
 /codecs
+/audio

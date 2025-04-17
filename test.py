@@ -4,6 +4,11 @@ import os.path as osp
 import time
 import wave
 from itertools import product
+import tempfile
+import random
+import string
+import shutil
+base63_alphabet = string.ascii_uppercase + string.ascii_lowercase + string.digits + '+'
 
 import librosa
 import librosa.display
@@ -16,10 +21,28 @@ from testlib import *
 
 print("Imported testlib")
 
-# some global configs
-files = [
+###
+# prepare source audio files
+###
+source_dir = "./audio"
+source_files = os.listdir(source_dir)
+files = [osp.join(source_dir, name) for name in source_files]
 
-]
+# NOTE: if your temporary directory is not on a RAM-disk, it can be better to not copy anything
+def move_to_temp():
+    # prepare temporary directory
+    working_dir = tempfile.gettempdir() # Can replace with a custom temporary directory
+    os.makedirs(working_dir, exist_ok=True)
+    working_dir = osp.join(working_dir, "".join(random.choices(base63_alphabet, k=32)))
+    os.makedirs(working_dir, exist_ok=False)
+
+    # copy files to temporary directory
+    shutil.copytree(source_dir, working_dir, dirs_exist_ok=True)
+
+    global files
+    files = [osp.join(working_dir, name) for name in source_files]
+
+    return working_dir
 
 # x64 encoder paths
 flac_path = "./codecs/flac.exe"
@@ -41,30 +64,20 @@ takc_path = "./codecs/Takc.exe"
 opus_path = "./codecs/opusenc.exe"
 neroaac_path = "./codecs/neroAacEnc.exe"
 
-# Flag generation functions
-def wavpack_flags(bitrates, correction=False):
-    extras = [[], ["--use-dns"], ["--cross-decorr"], ["--use-dns", "--cross-decorr"]]
-    if correction:
-        extras += [["-cc"], ["-cc", "--use-dns"]]
-    flags = product([["-f"], [], ["-h"], ["-hh"], ["-hh", "-x3"]], bitrates, extras)
-    correction = ["-c"] if correction else []
-    return [correction + m + [f"-b{c}"] + extras for m, c, extras in flags]
-
 # Encoder constants
-flaccl_args = ["--slow-gpu"] # Optimal for integrated graphics or small files
+flaccl_device = ["--opencl-platform \"Intel(R) OpenCL Graphics\"", "--slow-gpu"] # Slow & universal case
+wavpack_modes = [["-f"], [], ["-h"], ["-hh"], ["-h", "-x1"], ["-hh", "-x3"], ["-hh", "-x6"]]
 losssywav_modes = "IHSX"
 
 # lossless codes
-flac_codecs = [flac(flac_path, [f"-{c}"]) for c in range(8+1)] +\
-[flac(flaccl_path, flaccl_args + [f"-{c}"]) for c in range(8+1)] +\
-[flac(flaccl_path, flaccl_args + [f"-{c}", "--lax"]) for c in range(9, 11+1)]
+flac_codecs = [flac(flac_path, [f"-{c}"]) for c in range(8+1)]
+flaccl_codecs = [flac(flaccl_path, flaccl_device + [f"-{c}"]) for c in range(8+1)] +\
+[flac(flaccl_path, flaccl_device + [f"-{c}", "--lax"]) for c in range(9, 11+1)]
 ape_codecs = [mac(mac_path, f"-c{c}000") for c in range(1, 6)]
-wavpack_lossless_codecs = [
-    wavpack(wavpack_path, a) for a in
-    ["-f", None, "-h", "-hh", ["-h", "-x1"], ["-hh", "-x3"], ["-hh", "-x6"]]
-]
+wavpack_lossless_codecs = [wavpack(wavpack_path, a) for a in wavpack_modes]
 wavpack_lossless_hybrid_codecs = [
-    wavpack(wavpack_path, flags) for flags in wavpack_flags([128, 192, 320], True)
+    wavpack(wavpack_path, ["-c"] + m + [f"-b{c}"]) for m, c in
+    product(wavpack_modes, [128, 192, 320])
 ]
 tak_codecs = [
     takc(takc_path, [f"-p{p}{e}", f"-tn{t}"]) for p, e, t in
@@ -94,6 +107,7 @@ lossless_codecs = {
     "optimFrog": optimfrog_codecs,
 
     "flac": flac_codecs,
+    "flaccl": flaccl_codecs,
     "ape": ape_codecs,
     "wavpack": wavpack_lossless_codecs,
     "wavpack(hybrid)": wavpack_lossless_hybrid_codecs,
@@ -118,7 +132,8 @@ aac_vbr_values = [0.1, 0.3, 0.5, 0.7, 0.9]
 
 # lossy codecs
 wavpack_lossy_codecs = [
-    wavpack(wavpack_path, flags) for flags in wavpack_flags(wavpack_birates, True)
+    wavpack(wavpack_path, ["--use-dns", "-j1"] + m + [f"-b{c}"]) for m, c in
+    product(wavpack_modes, wavpack_birates)
 ]
 lame_cbr_codecs = [
     lame(lame_path, [f"-b{b}", f"-q{q}"]) for b, q in
@@ -140,7 +155,7 @@ optimfrog_lossy_codecs = [ofs(ofs_path, ["--quality", str(q)]) for q in [0, 2, 6
 opus_codecs = [opus(opus_path, ["--bitrate", str(b // 2)]) for b in opus_birates]
 lossyflac_codecs = [
     lossyflac(lossywav_path, flac_path, ["-q", q], f"-{c}") for q, c in
-    product(losssywav_modes, [1,4,7])
+    product(losssywav_modes, [1, 4, 7])
 ]
 lossytak_codecs = [
     lossytak(lossywav_path, takc_path, ["-q", q], f"-p{p}") for q, p in
@@ -217,13 +232,20 @@ def run_benchmark(save_spectrogram=True):
                 fresult = codec.encode(audio_file)
                 encode_time = time.time() - tstart
 
+                if fresult is None:
+                    fresult = []
+                elif isinstance(fresult, (list, tuple)):
+                    fresult = list(fresult)
+                else:
+                    fresult = [fresult]
+
                 if "hybrid" in series: # for hybrid mode
                     if "wavpack" in series:
-                        result_size = osp.getsize(fresult) + osp.getsize(fresult.replace(".wv", ".wvc"))
+                        fresult += [fresult[0].replace(".wv", ".wvc")]
                     elif "lossy" in series:
-                        result_size = osp.getsize(fresult) + osp.getsize(fresult.replace(".lossy", ".lwcdf"))
-                else:
-                    result_size = osp.getsize(fresult)
+                        fresult += [fresult[0].replace(".lossy", ".lwcdf")]
+
+                result_size = sum(map(osp.getsize, fresult))
 
                 tstart = time.time()
                 fback = codec.decode(fresult)
@@ -240,6 +262,10 @@ def run_benchmark(save_spectrogram=True):
                     hash_consistent=hash_consistent,
                     compression_ratio=result_size / asize
                 ))
+
+                for f in fresult + [fback]:
+                    os.unlink(f)
+
             lossless_results[series] = series_results
 
         print("Benchmarking lossy codecs...")
@@ -285,6 +311,10 @@ def run_benchmark(save_spectrogram=True):
                     snr=float(sdb_snr),
                     weighted_snr=float(psdb_snr)
                 ))
+
+                for f in [fresult, fback]:
+                    os.unlink(f)
+
             lossy_results[series] = series_results
 
         results[osp.basename(audio_file)] = {"lossless": lossless_results, "lossy": lossy_results, "metadata": ameta}
@@ -481,7 +511,9 @@ def save_table(result_path="result.json"):
     fmd.close()
 
 if __name__ == "__main__":
+    working_dir = move_to_temp() # Can be removed
     run_benchmark()
     save_table()
     plot_results()
+    shutil.rmtree(working_dir, ignore_errors=True)
     # plot_results(tag_points=False, bitrate_as_x=True)

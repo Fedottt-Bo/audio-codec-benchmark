@@ -30,7 +30,9 @@ class Codec: # TODO: add flag indicating whether supporting hires files
         pass
 
     def decode(self, fin):
-        pass
+        fout = fin + ".wav"
+        check_call([ffmpeg_path, "-y", "-i", fin, fout], stdout=DEVNULL, stderr=DEVNULL)
+        return fout
 
     def __str__(self):
         if self.cmd_args:
@@ -51,6 +53,16 @@ class flac(Codec):
     def decode(self, fin):
         fout = fin + ".wav"
         check_call([self.path, fin, "-sfd", "-o", fout] + self.extra_args, stdout=DEVNULL, stderr=DEVNULL)
+        return fout
+
+class flaccl(Codec):
+    def __init__(self, path, cmd_args):
+        super().__init__(path, cmd_args)
+        self.extra_args = []
+
+    def encode(self, fin):
+        fout = fin + ".flac"
+        check_call([self.path, fin, "-o", fout] + self.cmd_args + self.extra_args, stdout=DEVNULL, stderr=DEVNULL)
         return fout
 
 class mac(Codec):
@@ -133,11 +145,6 @@ class wmaencode(Codec):
     def encode(self, fin):
         fout = fin + ".wma"
         check_call([self.path, fin, fout, "-s"] + self.cmd_args)
-        return fout
-
-    def decode(self, fin):
-        fout = fin + ".wav"
-        check_call([ffmpeg_path, "-y", "-i", fin, fout], stdout=DEVNULL, stderr=DEVNULL)
         return fout
 
 class lossywav(Codec): # Pipeline mode is not working, so intermediate files are saved
@@ -286,11 +293,6 @@ class oggenc(Codec):
     def encode(self, fin):
         fout = fin + ".ogg"
         check_call([self.path, fin, "-o", fout, "-Q"] + self.cmd_args)
-        return fout
-
-    def decode(self, fin):
-        fout = fin + ".wav"
-        check_call([ffmpeg_path, "-y", "-i", fin, fout], stdout=DEVNULL, stderr=DEVNULL)
         return fout
 
 class neroaac(Codec):
